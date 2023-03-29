@@ -5,8 +5,12 @@ import csv
 def converte_bytes_mb(bytes):
     return round(bytes/(1024*1024), 2)
 
-# Informações sobre todos os processos em execução
-processos = psutil.process_iter()
+# Função para obter informações sobre o uso total de CPU, memória e disco pelo sistema
+def obter_uso_total():
+    uso_cpu = psutil.cpu_percent()
+    uso_memoria = psutil.virtual_memory().percent
+    uso_disco = psutil.disk_usage('/').percent
+    return uso_cpu, uso_memoria, uso_disco
 
 # Cria um arquivo CSV para gravar as informações
 with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
@@ -15,14 +19,28 @@ with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
     escritor_csv = csv.writer(arquivo_csv, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     
     # Escreve o cabeçalho do arquivo CSV
-    escritor_csv.writerow(['Processo', 'PID', 'CPU', 'Memória (Residente)', 'Memória (Virtual)', 'Disco (Leitura)', 'Disco (Escrita)'])
+    escritor_csv.writerow(['Processo', 'PID', 'CPU', 'Memória (Residente)', 'Memória (Virtual)', 'Leitura de disco', 'Escrita de disco', 'Uso total de disco'])
     
-    # Escreve as informações de cada processo no arquivo CSV
-    for processo in processos:
-        escritor_csv.writerow([processo.name(),
-                               processo.pid,
-                               processo.cpu_percent(interval=1),
-                               converte_bytes_mb(processo.memory_info().rss),
-                               converte_bytes_mb(processo.memory_info().vms),
-                               converte_bytes_mb(processo.io_counters().read_bytes),
-                               converte_bytes_mb(processo.io_counters().write_bytes)])
+    # Loop através de todos os processos em execução
+    for processo in psutil.process_iter(['name', 'pid', 'cpu_percent', 'memory_info', 'io_counters']):
+        try:
+            # Obtém as informações do processo
+            nome_processo = processo.info['name']
+            pid = processo.info['pid']
+            cpu = processo.info['cpu_percent'](interval=1)
+            mem_residente = converte_bytes_mb(processo.info['memory_info'].rss)
+            mem_virtual = converte_bytes_mb(processo.info['memory_info'].vms)
+            leitura_disco, escrita_disco = processo.info['io_counters'].read_bytes, processo.info['io_counters'].write_bytes
+            uso_total_disco = psutil.disk_usage('/').percent
+            
+            # Escreve as informações do processo no arquivo CSV
+            escritor_csv.writerow([nome_processo, pid, cpu, mem_residente, mem_virtual, leitura_disco, escrita_disco, uso_total_disco])
+        
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    
+    # Obtém as informações sobre o uso total de CPU, memória e disco pelo sistema
+    uso_cpu, uso_memoria, uso_disco = obter_uso_total()
+    
+    # Escreve as informações sobre o uso total no final do arquivo CSV
+    escritor_csv.writerow(['', '', uso_cpu, f'{uso_memoria}%', '', '', '', f'{uso_disco}%'])
