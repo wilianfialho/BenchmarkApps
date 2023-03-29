@@ -1,0 +1,28 @@
+import psutil
+import csv
+
+# Função para converter bytes em MB
+def converte_bytes_mb(bytes):
+    return round(bytes/(1024*1024), 2)
+
+# Informações sobre todos os processos em execução
+processos = psutil.process_iter()
+
+# Cria um arquivo CSV para gravar as informações
+with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
+    
+    # Cria o objeto escritor CSV
+    escritor_csv = csv.writer(arquivo_csv, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    
+    # Escreve o cabeçalho do arquivo CSV
+    escritor_csv.writerow(['Processo', 'PID', 'CPU', 'Memória (Residente)', 'Memória (Virtual)', 'Disco (Leitura)', 'Disco (Escrita)'])
+    
+    # Escreve as informações de cada processo no arquivo CSV
+    for processo in processos:
+        escritor_csv.writerow([processo.name(),
+                               processo.pid,
+                               processo.cpu_percent(interval=1),
+                               converte_bytes_mb(processo.memory_info().rss),
+                               converte_bytes_mb(processo.memory_info().vms),
+                               converte_bytes_mb(processo.io_counters().read_bytes),
+                               converte_bytes_mb(processo.io_counters().write_bytes)])
