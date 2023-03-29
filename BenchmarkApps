@@ -1,6 +1,7 @@
 import psutil
-import csv
 import datetime
+import tkinter as tk
+from tkinter import ttk
 
 # Função para converter bytes em MB
 def converte_bytes_mb(bytes):
@@ -13,23 +14,20 @@ def obter_uso_total():
     uso_disco = psutil.disk_usage('/').percent
     return uso_cpu, uso_memoria, uso_disco
 
-# Obter data e hora atual
-data_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-# Opções de ordenação e filtragem
-ordem = input("Ordernar por CPU, memória ou disco? (C/M/D): ")
-filtrar_por_nome = input("Filtrar por nome? (Deixe em branco para não filtrar): ")
-filtrar_por_pid = input("Filtrar por PID? (Deixe em branco para não filtrar): ")
-
-# Cria um arquivo CSV para gravar as informações
-with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
+# Função para atualizar as informações de processos na tabela
+def atualizar_tabela():
+    # Limpa a tabela existente
+    for linha in tabela.get_children():
+        tabela.delete(linha)
     
-    # Cria o objeto escritor CSV
-    escritor_csv = csv.writer(arquivo_csv, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    # Obtém as opções de ordenação e filtragem selecionadas pelo usuário
+    ordem = opcoes_ordem.get()
+    filtrar_por_nome = campo_filtrar_por_nome.get().lower()
+    filtrar_por_pid = campo_filtrar_por_pid.get().lower()
     
-    # Escreve o cabeçalho do arquivo CSV
-    escritor_csv.writerow(['Data/Hora', 'Processo', 'PID', 'CPU', 'Memória (Residente)', 'Memória (Virtual)', 'Leitura de disco', 'Escrita de disco', 'Uso total de disco'])
-
+    # Obter data e hora atual
+    data_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     # Lista para armazenar as informações dos processos
     processos = []
 
@@ -59,12 +57,99 @@ with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
     elif ordem.lower() == 'd':
         processos.sort(key=lambda x: x[7], reverse=True)
     
-    # Escreve as informações dos processos no arquivo CSV
-for processo in processos:
-    if filtrar_por_nome and filtrar_por_nome.lower() not in processo[0].lower():
-        continue
-    if filtrar_por_pid and filtrar_por_pid != str(processo[1]):
-        continue
-    escritor_csv.writerow([data_hora, processo[0], processo[1], processo[2], processo[3], processo[4], processo[5], processo[6], processo[7]])
+    # Escreve as informações dos processos na tabela
+    for processo in processos:
+        if filtrar_por_nome and filtrar_por_nome not in processo[0].lower():
+            continue
+        if filtrar_por_pid and filtrar_por_pid != str(processo[1]):
+            continue
+        tabela.insert('', 'end', values=[data_hora, processo[0], processo[1], processo[2], processo[3], processo[4], processo[5], processo[6], processo[7]])
 
 
+# Cria a janela principal
+janela = tk.Tk()
+janela.title("Monitor de Processos")
+janela.geometry("800x600")
+
+# Cria a tabela para exibir as informações de processos
+tabela = ttk.Treeview(janela, columns=("Data/Hora", "Nome do Processo", "PID", "Uso de CPU (%)", "Memória Residente (MB)", "Memória Virtual (MB)", "Leitura de Disco (bytes)", "Escrita de Disco (bytes)", "Uso Total de Disco (%)"))
+
+# Define os cabeçalhos da tabela
+tabela.heading("#0", text="")
+tabela.heading("Data/Hora", text="Data/Hora")
+tabela.heading("Nome do Processo", text="Nome do Processo")
+tabela.heading("PID", text="PID")
+tabela.heading("Uso de CPU (%)", text="Uso de CPU (%)")
+tabela.heading("Memória Residente (MB)", text="Memória Residente (MB)")
+tabela.heading("Memória Virtual (MB)", text="Memória Virtual (MB)")
+tabela.heading("Leitura de Disco (bytes)", text="Leitura de Disco (bytes)")
+tabela.heading("Escrita de Disco (bytes)", text="Escrita de Disco (bytes)")
+tabela.heading("Uso Total de Disco (%)", text="Uso Total de Disco (%)")
+
+# Define as larguras das colunas da tabela
+tabela.column("#0", width=0, stretch=tk.NO)
+tabela.column("Data/Hora", width=150, anchor=tk.CENTER)
+tabela.column("Nome do Processo", width=150, anchor=tk.W)
+tabela.column("PID", width=50, anchor=tk.CENTER)
+tabela.column("Uso de CPU (%)", width=100, anchor=tk.CENTER)
+tabela.column("Memória Residente (MB)", width=150, anchor=tk.CENTER)
+tabela.column("Memória Virtual (MB)", width=150, anchor=tk.CENTER)
+tabela.column("Leitura de Disco (bytes)", width=150, anchor=tk.CENTER)
+tabela.column("Escrita de Disco (bytes)", width=150, anchor=tk.CENTER)
+tabela.column("Uso Total de Disco (%)", width=150, anchor=tk.CENTER)
+
+# Cria um quadro para os controles de filtro e ordenação
+quadro_controles = tk.Frame(janela)
+quadro_controles.pack(side=tk.TOP, fill=tk.X)
+
+# Cria um rótulo e uma caixa de seleção para a ordenação
+rotulo_ordem = tk.Label(quadro_controles, text="Ordenar por:")
+rotulo_ordem.pack(side=tk.LEFT, padx=5, pady=5)
+opcoes_ordem = ttk.Combobox(quadro_controles, values=("C", "M", "D"), state="readonly")
+opcoes_ordem.pack(side=tk.LEFT, padx=5, pady=5)
+opcoes_ordem.current(0)
+
+# Cria rótulos e caixas de entrada para filtrar por nome e PID
+rotulo_filtrar_por_nome = tk.Label(quadro_controles, text="Filtrar por nome:")
+rotulo_filtrar_por_nome.pack(side=tk.LEFT, padx=5, pady=5)
+campo_filtrar_por_nome = tk.Entry(quadro_controles)
+campo_filtrar_por_nome.pack(side=tk.LEFT, padx=5, pady=5)
+
+rotulo_filtrar_por_pid = tk.Label(quadro_controles, text="Filtrar por PID:")
+rotulo_filtrar_por_pid.pack(side=tk.LEFT, padx=5, pady=5)
+campo_filtrar_por_pid = tk.Entry(quadro_controles)
+campo_filtrar_por_pid.pack(side=tk.LEFT, padx=5, pady=5)
+
+# Cria um frame para os controles de ordenação e filtragem
+frame_controles = ttk.Frame(janela)
+
+# Cria o controle de ordenação
+opcoes_ordem = ttk.Combobox(frame_controles, values=("CPU", "Memória Residente", "Uso de Disco"), state="readonly")
+opcoes_ordem.current(0)
+opcoes_ordem.grid(row=0, column=0, padx=5, pady=5)
+
+# Cria o controle de filtragem por nome
+ttk.Label(frame_controles, text="Filtrar por Nome:").grid(row=0, column=1, padx=5, pady=5)
+campo_filtrar_por_nome = ttk.Entry(frame_controles)
+campo_filtrar_por_nome.grid(row=0, column=2, padx=5, pady=5)
+
+# Cria o controle de filtragem por PID
+ttk.Label(frame_controles, text="Filtrar por PID:").grid(row=0, column=3, padx=5, pady=5)
+campo_filtrar_por_pid = ttk.Entry(frame_controles)
+campo_filtrar_por_pid.grid(row=0, column=4, padx=5, pady=5)
+
+# Cria o botão de atualizar
+botao_atualizar = ttk.Button(frame_controles, text="Atualizar", command=atualizar_tabela)
+botao_atualizar.grid(row=0, column=5, padx=5, pady=5)
+
+# Adiciona o frame de controles à janela
+frame_controles.pack()
+
+# Adiciona a tabela à janela
+tabela.pack(expand=True, fill="both")
+
+# Define a função atualizar_tabela para ser chamada periodicamente
+janela.after(5000, atualizar_tabela)
+
+# Inicia o loop principal da interface gráfica
+janela.mainloop()
