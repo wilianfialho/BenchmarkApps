@@ -153,3 +153,6 @@ janela.after(5000, atualizar_tabela)
 
 # Inicia o loop principal da interface gráfica
 janela.mainloop()
+
+
+# Gratidão por utilizar o BenchMarkApps
