@@ -1,5 +1,6 @@
 import psutil
 import csv
+import datetime
 
 # Função para converter bytes em MB
 def converte_bytes_mb(bytes):
@@ -12,6 +13,14 @@ def obter_uso_total():
     uso_disco = psutil.disk_usage('/').percent
     return uso_cpu, uso_memoria, uso_disco
 
+# Obter data e hora atual
+data_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+# Opções de ordenação e filtragem
+ordem = input("Ordernar por CPU, memória ou disco? (C/M/D): ")
+filtrar_por_nome = input("Filtrar por nome? (Deixe em branco para não filtrar): ")
+filtrar_por_pid = input("Filtrar por PID? (Deixe em branco para não filtrar): ")
+
 # Cria um arquivo CSV para gravar as informações
 with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
     
@@ -19,8 +28,11 @@ with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
     escritor_csv = csv.writer(arquivo_csv, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     
     # Escreve o cabeçalho do arquivo CSV
-    escritor_csv.writerow(['Processo', 'PID', 'CPU', 'Memória (Residente)', 'Memória (Virtual)', 'Leitura de disco', 'Escrita de disco', 'Uso total de disco'])
-    
+    escritor_csv.writerow(['Data/Hora', 'Processo', 'PID', 'CPU', 'Memória (Residente)', 'Memória (Virtual)', 'Leitura de disco', 'Escrita de disco', 'Uso total de disco'])
+
+    # Lista para armazenar as informações dos processos
+    processos = []
+
     # Loop através de todos os processos em execução
     for processo in psutil.process_iter(['name', 'pid', 'cpu_percent', 'memory_info', 'io_counters']):
         try:
@@ -32,15 +44,27 @@ with open('informacoes_processos.csv', mode='w', newline='') as arquivo_csv:
             mem_virtual = converte_bytes_mb(processo.info['memory_info'].vms)
             leitura_disco, escrita_disco = processo.info['io_counters'].read_bytes, processo.info['io_counters'].write_bytes
             uso_total_disco = psutil.disk_usage('/').percent
-            
-            # Escreve as informações do processo no arquivo CSV
-            escritor_csv.writerow([nome_processo, pid, cpu, mem_residente, mem_virtual, leitura_disco, escrita_disco, uso_total_disco])
+
+            # Adiciona as informações do processo à lista de processos
+            processos.append([nome_processo, pid, cpu, mem_residente, mem_virtual, leitura_disco, escrita_disco, uso_total_disco])
         
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
     
-    # Obtém as informações sobre o uso total de CPU, memória e disco pelo sistema
-    uso_cpu, uso_memoria, uso_disco = obter_uso_total()
+    # Ordena a lista de processos
+    if ordem.lower() == 'c':
+        processos.sort(key=lambda x: x[2], reverse=True)
+    elif ordem.lower() == 'm':
+        processos.sort(key=lambda x: x[3], reverse=True)
+    elif ordem.lower() == 'd':
+        processos.sort(key=lambda x: x[7], reverse=True)
     
-    # Escreve as informações sobre o uso total no final do arquivo CSV
-    escritor_csv.writerow(['', '', uso_cpu, f'{uso_memoria}%', '', '', '', f'{uso_disco}%'])
+    # Escreve as informações dos processos no arquivo CSV
+for processo in processos:
+    if filtrar_por_nome and filtrar_por_nome.lower() not in processo[0].lower():
+        continue
+    if filtrar_por_pid and filtrar_por_pid != str(processo[1]):
+        continue
+    escritor_csv.writerow([data_hora, processo[0], processo[1], processo[2], processo[3], processo[4], processo[5], processo[6], processo[7]])
+
+
